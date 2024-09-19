@@ -23,10 +23,10 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     async for request in request_iterator:
       logging.info(f'received chat message: {request}')
 
-      # Keeps track of new client.
-      if request.sender_id and \
-        request.sender_id not in self._connected_grpc_channels:
-        self._connected_grpc_channels[request.sender_id] = context
+      # Keeps track of client.
+      # Reset to client's latest connection. This assumes end user keeps
+      # exactly one connection at any given time.
+      self._connected_grpc_channels[request.sender_id] = context
 
       # Broadcast to all other currently connected clients.
       for client_id, channel in self._connected_grpc_channels.items():
