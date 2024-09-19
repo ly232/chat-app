@@ -33,8 +33,7 @@ async def receive_messages(stream, client_id):
       print(f'Received: {response.content} from {response.sender_id}')
 
 async def run(client_id, remote):
-  with open('roots.pem', 'rb') as f:
-    creds = grpc.ssl_channel_credentials(f.read())
+  creds = grpc.ssl_channel_credentials()
   if remote:
     assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
       'Please set env var CHAT_APP_SERVER_SPEC.'
