@@ -40,5 +40,5 @@ async def Serve(port=50051) -> None:
   chat_service_pb2_grpc.add_ChatServiceServicer_to_server(ChatService(), server)
   server.add_insecure_port(f'[::]:{port}')
   await server.start()
-  logging.info("Server is running on port 50051...")
+  logging.info(f'Server is running on port {port}.')
   await server.wait_for_termination()

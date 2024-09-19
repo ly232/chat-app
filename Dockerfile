@@ -52,4 +52,4 @@ RUN python -m grpc_tools.protoc \
     --grpc_python_out=proto/generated_pb2 \
     proto/chat_service.proto
 
-ENTRYPOINT ["python", "/chat-app/chat_server.py"]
+ENTRYPOINT ["python", "/chat-app/chat_server_main.py"]
