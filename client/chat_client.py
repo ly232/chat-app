@@ -1,5 +1,7 @@
 '''Client-side chat app.
 
+Note that this file is NOT deployed to GCP. It's purely for local demo purpose.
+
 Example usage (must run under project root directory):
 
   python -m client.chat_client
@@ -20,7 +22,10 @@ import os
 async def generate_messages(client_id):
   while True:
     message_content = input(f'{client_id}: ')
-    yield chat_service_pb2.ChatMessage(content=message_content, sender_id=client_id)
+    yield chat_service_pb2.ChatMessage(
+      content=message_content, sender_id=client_id)
+    # Sleep a bit to give event loop a chance to display any pending messages.
+    await asyncio.sleep(0.1)
 
 async def receive_messages(stream, client_id):
   async for response in stream:
@@ -28,13 +33,14 @@ async def receive_messages(stream, client_id):
       print(f'Received: {response.content} from {response.sender_id}')
 
 async def run(client_id, remote):
-
   with open('roots.pem', 'rb') as f:
     creds = grpc.ssl_channel_credentials(f.read())
   if remote:
-    assert 'CHAT_APP_SERVER_SPEC' in os.environ, 'Please set env var CHAT_APP_SERVER_SPEC.'
+    assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
+      'Please set env var CHAT_APP_SERVER_SPEC.'
     print(f'connecting to {os.environ.get('CHAT_APP_SERVER_SPEC')}')
-    channel = grpc.aio.secure_channel(os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
+    channel = grpc.aio.secure_channel(
+      os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
   else:
     print(f'connecting to localhost:50051')
     channel = grpc.aio.insecure_channel('localhost:50051')
@@ -46,14 +52,16 @@ async def run(client_id, remote):
     stream = stub.Chat(generate_messages(client_id))
 
     # Create a task for receiving messages
-    receive_task = asyncio.create_task(receive_messages(stream, client_id))
+    receive_task = asyncio.create_task(
+      receive_messages(stream, client_id))
 
     # Send messages
     await receive_task
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Chat app client.")
-  parser.add_argument('--remote', type=bool, help='Whether to wire to remote GCP server.')
+  parser.add_argument(
+    '--remote', type=bool, help='Whether to wire to remote GCP server.')
   args = parser.parse_args()
 
   client_id = input("Enter your client ID: ")
