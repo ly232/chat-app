@@ -6,7 +6,6 @@ from typing import AsyncIterator
 import asyncio
 import grpc
 import logging
-import os
 
 class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
   '''gRPC servi e impl for ChatService.
