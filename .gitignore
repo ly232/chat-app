@@ -1,0 +1,37 @@
+# Operating System files
+/node_modules/
+/vendor/
+/bower_components/
+/components/
+/public/
+/temp/
+/tmp/
+*.log
+*.swp
+
+# IDE specific files
+/.idea/
+/.vscode/
+*.suo
+*.user
+*.sln
+*.vcxproj
+*.db3
+
+# Compiled files
+*.pyc
+*.pyo
+*.swp
+/proto/generated_pb2/*pb2*.py
+/proto/api_descriptor.pb
+
+# Test results
+/test/results/
+/coverage/
+
+# Local configuration files
+*.env
+*.git-credentials
+
+# Temporary files
+*~

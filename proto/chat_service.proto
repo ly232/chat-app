@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package chat_service;
+
+import "google/protobuf/timestamp.proto";
+
+// A simple chat service that allows anyone to login and start broadcasting
+// message to everyone who currently holds an active connection to the service.
+service ChatService {
+  // Broadcasts given message.
+  //
+  // For initial login, client should send an initial message via this RPC to
+  // open up a bidi-chnanel. All subsequent messages will be broadcasted via
+  // this channel.
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+// A single message transacted through the ChatService.Chat RPC.
+//
+// Note that gRPC provides at least once delivery semantics. Consumers of this
+// message is encouraged to leverage `creation_timestamp` + `sender_id` as an
+// idempotency key, to realize exactly once processing semantics.
+message ChatMessage {
+  // Timestamp at which this chat message was created.
+  google.protobuf.Timestamp creation_timestamp = 1;
+
+  // Sender ID of this message.
+  string sender_id = 2;
+
+  // Content of the message.
+  // Include "@AiAgent" in the conent to trigger a request to AI Agent.
+  string content = 3;
+}
