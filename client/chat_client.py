@@ -20,6 +20,12 @@ import asyncio
 import os
 
 async def generate_messages(client_id):
+  # Initiate a dummy empty message to establish the connection. Without this,
+  # the client won't establish a connection to server just yet, which means the
+  # very first message will not be seen by other clients.
+  yield chat_service_pb2.ChatMessage(sender_id=client_id)
+
+  # Now interactively awaits user to enter next messasge.
   while True:
     message_content = input(f'{client_id}: ')
     yield chat_service_pb2.ChatMessage(
@@ -38,6 +44,9 @@ async def run(client_id, remote):
     assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
       'Please set env var CHAT_APP_SERVER_SPEC.'
     print(f'connecting to {os.environ.get('CHAT_APP_SERVER_SPEC')}')
+    # Note: must use secure_channel, even if server uses add_insecure_port.
+    # Using insecure_channel leads to "failed to connect to all addresses; last 
+    # error: UNAVAILABLE: ...: Socket closed".
     channel = grpc.aio.secure_channel(
       os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
   else:
@@ -50,11 +59,13 @@ async def run(client_id, remote):
     # Open the chat stream.
     stream = stub.Chat(generate_messages(client_id))
 
-    # Create a task for receiving messages
-    receive_task = asyncio.create_task(
-      receive_messages(stream, client_id))
+    # Create a coroutine task for receiving messages
+    receive_task = asyncio.create_task(receive_messages(stream, client_id))
 
-    # Send messages
+    # Awaiting on the coroutine in event loop. If `stream` receives any message,
+    # event loop will execute the `receive_messages` callback, otherwise the
+    # coroutine will be placed to the end of the event loop to yield execution
+    # to other coroutines (namely, the main coroutine).
     await receive_task
 
 if __name__ == '__main__':
