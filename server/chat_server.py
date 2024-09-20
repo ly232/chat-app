@@ -12,12 +12,12 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
   def __init__(self):
     # Maps client ID to grpc.aio.ServicerContext.
     self._connected_grpc_channels = {}
+    self.server = None
 
   async def Chat(
     self, 
     request_iterator: AsyncIterator[chat_service_pb2.ChatMessage],
-    context: grpc.aio.ServicerContext,
-  ) -> AsyncIterator[chat_service_pb2.ChatMessage]:
+    context: grpc.aio.ServicerContext):
     async for request in request_iterator:
       logging.info(f'received chat message: {request}')
 
@@ -40,11 +40,14 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
       for client in closed_clients:
         del self._connected_grpc_channels[client]
 
-async def Serve(port=50051) -> None:
-  server = grpc.aio.server()
-  chat_service_pb2_grpc.add_ChatServiceServicer_to_server(
-    ChatService(), server)
-  server.add_insecure_port(f'[::]:{port}')
-  await server.start()
-  logging.info(f'Server is running on port {port}.')
-  await server.wait_for_termination()
+  async def Serve(self, port=50051) -> None:
+    self.server = grpc.aio.server()
+    chat_service_pb2_grpc.add_ChatServiceServicer_to_server(self, self.server)
+    self.server.add_insecure_port(f'[::]:{port}')
+    await self.server.start()
+    logging.info(f'Server is running on port {port}.')
+    await self.server.wait_for_termination()
+    logging.info(f'Shutting down server...')
+
+  async def Shutdown(self) -> None:
+    await self.server.stop(grace=None)

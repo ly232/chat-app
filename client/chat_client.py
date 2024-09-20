@@ -19,6 +19,66 @@ import grpc
 import asyncio
 import os
 
+class ChatClient:
+  '''A simple chat client.
+  '''
+
+  def __init__(self, client_id, remote):
+    '''Initializes the chat client.
+
+    Args:
+    `client_id` (str): client id to identify to the server. Note that server
+      will use the same gRPC connection for the same client id.
+    `remote` (bool): whether to connect to remote GCP server.
+    '''
+    self._client_id = client_id
+    self._remote = remote
+
+  async def run(self, generate_messages, receive_messages):
+    '''Start running the client.
+
+    Args:
+    `generate_messages` (function): an async generator that yields messages that
+      this client intends to send. The function takes in a single str argument
+      `client_id`.
+    `receive_messages` (function): a coroutine that takes in an async generator
+      and a client id, and defines processing logic upon each value yielded by
+      the async generator.
+    '''
+
+    creds = grpc.ssl_channel_credentials()
+    if self._remote:
+      assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
+        'Please set env var CHAT_APP_SERVER_SPEC.'
+      print(f'connecting to {os.environ.get('CHAT_APP_SERVER_SPEC')}')
+      # Note: must use secure_channel, even if server uses add_insecure_port.
+      # Using insecure_channel leads to "failed to connect to all addresses; last 
+      # error: UNAVAILABLE: ...: Socket closed".
+      channel = grpc.aio.secure_channel(
+        os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
+    else:
+      print(f'connecting to localhost:50051')
+      channel = grpc.aio.insecure_channel('localhost:50051')
+
+    async with channel:
+      stub = chat_service_pb2_grpc.ChatServiceStub(channel)
+
+      # Open the chat stream.
+      stream = stub.Chat(generate_messages(self._client_id))
+
+      # Create a coroutine task for receiving messages
+      receive_task = asyncio.create_task(
+        receive_messages(stream, self._client_id))
+
+      # Awaiting on the coroutine in event loop. If `stream` receives any message,
+      # event loop will execute the `receive_messages` callback, otherwise the
+      # coroutine will be placed to the end of the event loop to yield execution
+      # to other coroutines (namely, the main coroutine).
+      await receive_task
+
+#
+# Define generator and coroutine for this particular chat client app.
+#
 async def generate_messages(client_id):
   # Initiate a dummy empty message to establish the connection. Without this,
   # the client won't establish a connection to server just yet, which means the
@@ -38,36 +98,6 @@ async def receive_messages(stream, client_id):
     if response.content and client_id != response.sender_id:
       print(f'Received: {response.content} from {response.sender_id}')
 
-async def run(client_id, remote):
-  creds = grpc.ssl_channel_credentials()
-  if remote:
-    assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
-      'Please set env var CHAT_APP_SERVER_SPEC.'
-    print(f'connecting to {os.environ.get('CHAT_APP_SERVER_SPEC')}')
-    # Note: must use secure_channel, even if server uses add_insecure_port.
-    # Using insecure_channel leads to "failed to connect to all addresses; last 
-    # error: UNAVAILABLE: ...: Socket closed".
-    channel = grpc.aio.secure_channel(
-      os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
-  else:
-    print(f'connecting to localhost:50051')
-    channel = grpc.aio.insecure_channel('localhost:50051')
-
-  async with channel:
-    stub = chat_service_pb2_grpc.ChatServiceStub(channel)
-
-    # Open the chat stream.
-    stream = stub.Chat(generate_messages(client_id))
-
-    # Create a coroutine task for receiving messages
-    receive_task = asyncio.create_task(receive_messages(stream, client_id))
-
-    # Awaiting on the coroutine in event loop. If `stream` receives any message,
-    # event loop will execute the `receive_messages` callback, otherwise the
-    # coroutine will be placed to the end of the event loop to yield execution
-    # to other coroutines (namely, the main coroutine).
-    await receive_task
-
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Chat app client.")
   parser.add_argument(
@@ -75,7 +105,9 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   client_id = input("Enter your client ID: ")
+  chat_client = ChatClient(client_id, args.remote)
   try:
-    asyncio.run(run(client_id, args.remote))
+    asyncio.run(
+      chat_client.run(generate_messages, receive_messages))
   except KeyboardInterrupt:
     print("\nChat ended.")
