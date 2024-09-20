@@ -23,7 +23,7 @@ class ChatClient:
   '''A simple chat client.
   '''
 
-  def __init__(self, client_id, remote):
+  def __init__(self, client_id, remote=False):
     '''Initializes the chat client.
 
     Args:
@@ -66,11 +66,11 @@ class ChatClient:
       # Open the chat stream.
       stream = stub.Chat(generate_messages(self._client_id))
 
-      # Create a coroutine task for receiving messages
+      # Create a coroutine task for receiving messages.
       receive_task = asyncio.create_task(
         receive_messages(stream, self._client_id))
 
-      # Awaiting on the coroutine in event loop. If `stream` receives any message,
+      # Awaiting on the coroutine in event loop. If `stream` receives a message,
       # event loop will execute the `receive_messages` callback, otherwise the
       # coroutine will be placed to the end of the event loop to yield execution
       # to other coroutines (namely, the main coroutine).
