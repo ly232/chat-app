@@ -1,5 +1,6 @@
 google-auth==2.19.1
 six==1.16.0
 protobuf
+google-generativeai
 grpcio
 grpcio-tools

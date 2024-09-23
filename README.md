@@ -19,8 +19,6 @@ intentionally uses gRPC bi-di streaming for the following reasons:
 2.  Transferring protobuf rather than json requires less network bandwidth.
 3.  Protobuf enforces strong typing.
 
-
-
 ### Database choice
 
 ### Message causality

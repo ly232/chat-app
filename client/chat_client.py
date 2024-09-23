@@ -11,8 +11,8 @@ or to connect to remote server in GCP:
   python -m client.chat_client --remote=true
 '''
 
-from proto.generated_pb2 import chat_service_pb2
-from proto.generated_pb2 import chat_service_pb2_grpc
+from protos.generated_pb2 import chat_service_pb2
+from protos.generated_pb2 import chat_service_pb2_grpc
 
 import argparse
 import grpc

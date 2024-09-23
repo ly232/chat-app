@@ -1,6 +1,6 @@
 from client import chat_client
-from proto.generated_pb2 import chat_service_pb2
-from proto.generated_pb2 import chat_service_pb2_grpc
+from protos.generated_pb2 import chat_service_pb2
+from protos.generated_pb2 import chat_service_pb2_grpc
 from server import chat_server
 from threading import Thread
 

@@ -1,12 +1,18 @@
 from collections import namedtuple
-from proto.generated_pb2 import chat_service_pb2
-from proto.generated_pb2 import chat_service_pb2_grpc
+from protos.generated_pb2 import chat_service_pb2
+from protos.generated_pb2 import chat_service_pb2_grpc
 from typing import AsyncIterator
 
 import asyncio
+# https://github.com/google-gemini/generative-ai-python/issues/360
+import google.generativeai as gemini
 import grpc
 import logging
+import os
 import time
+
+gemini.configure(api_key=os.environ["GEMINI_API_KEY"])
+GEMINI_MODEL = gemini.GenerativeModel("gemini-1.5-flash")
 
 ClientConnectionContext = namedtuple(
   'ClientConnectionContext', [
@@ -15,7 +21,7 @@ ClientConnectionContext = namedtuple(
   ])
 
 class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
-  '''gRPC servi e impl for ChatService.
+  '''gRPC service impl for ChatService.
   '''
   def __init__(self):
     # Maps client ID to ClientConnectionContext.
@@ -36,9 +42,50 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     # This set aims to solve the race condition. It simply keeps track of the
     # currently active writing channels, and writer coroutine in step 2 would
     # `await asyncio.sleep()` as long as the target channel is in this set.
-    #
-    # TODO: can we use async queue?
     self.active_writing_channels = set()
+
+  async def _broadcast(self, connected_grpc_channels_copy, request):
+    # Broadcast to all other currently connected clients, and garbage-collect
+    # closed clients, where we keep track of client id + timestamp when we
+    # detected a closed channel.
+    closed_clients = {}
+    for client_id, ctx in connected_grpc_channels_copy.items():
+      channel, _ = ctx.context, ctx.last_update_time
+      # channel is of type grpc.aio.ServicerContext.
+      while channel in self.active_writing_channels:
+        await asyncio.sleep(0.1)
+      if not channel.done():
+        self.active_writing_channels.add(channel)
+        try:
+          await channel.write(request)
+        except Exception:
+          logger.info(f'Channel {channel} was recently closed. Skipping')
+        finally:
+          self.active_writing_channels.remove(channel)
+      else:
+        # Some other client's request_iterator has exhausted iteration. Even
+        # if that other client invokes Chat again with a new request_iterator,
+        # it will still be a new channel, so we can safely close this channel
+        # now.
+        closed_clients[client_id] = time.time()
+
+    # There might be a subtle race condition if we only checks for client to
+    # determine delete condition:
+    #
+    # t1: c is in closed clients, so this coroutine passes the if check but
+    #     not yet deleting it.
+    # t2: another coroutine initiated from c comes in, inserts c into map.
+    # t3: now back to this coroutine, which will mistakenly delete the entry
+    #     inserted by t2.
+    #
+    # One solution is to add a timestamp. Deletion only happens if the last
+    # update time of c in _connected_grpc_channels  <= last read time of c
+    # in closed_clients
+    for client, last_read_time in closed_clients.items():
+      if client in self._connected_grpc_channels and \
+        last_read_time >= \
+          self._connected_grpc_channels[client].last_update_time:
+        del self._connected_grpc_channels[client]
 
   async def Chat(
     self, 
@@ -59,46 +106,18 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
         k: v for k, v in self._connected_grpc_channels.items()
       }
 
-      # Broadcast to all other currently connected clients, and garbage-collect
-      # closed clients, where we keep track of client id + timestamp when we
-      # detected a closed channel.
-      closed_clients = {}
-      for client_id, ctx in connected_grpc_channels_copy.items():
-        channel, _ = ctx.context, ctx.last_update_time
-        # channel is of type grpc.aio.ServicerContext.
-        while channel in self.active_writing_channels:
-          await asyncio.sleep(0.1)
-        if not channel.done():
-          self.active_writing_channels.add(channel)
-          await channel.write(request)
-          self.active_writing_channels.remove(channel)
-          if '@AiAgent' in request.content:
-            # TODO: interact with AI Agent.
-            pass
-        else:
-          # Some other client's request_iterator has exhausted iteration. Even
-          # if that other client invokes Chat again with a new request_iterator,
-          # it will still be a new channel, so we can safely close this channel
-          # now.
-          closed_clients[client_id] = time.time()
+      # Brodcast request message to online users.
+      await self._broadcast(connected_grpc_channels_copy, request)
 
-      # There might be a subtle race condition if we only checks for client to
-      # determine delete condition:
-      #
-      # t1: c is in closed clients, so this coroutine passes the if check but
-      #     not yet deleting it.
-      # t2: another coroutine initiated from c comes in, inserts c into map.
-      # t3: now back to this coroutine, which will mistakenly delete the entry
-      #     inserted by t2.
-      #
-      # One solution is to add a timestamp. Deletion only happens if the last
-      # update time of c in _connected_grpc_channels  <= last read time of c
-      # in closed_clients
-      for client, last_read_time in closed_clients.items():
-        if client in self._connected_grpc_channels and \
-          last_read_time >= \
-            self._connected_grpc_channels[client].last_update_time:
-          del self._connected_grpc_channels[client]
+      # If request contains @gemini, forward request to gemini then broadcast
+      # gemini's response to all online users again.
+      if '@gemini' in request.content:
+        gemini_response = GEMINI_MODEL.generate_content(request.content)
+        await self._broadcast(
+          connected_grpc_channels_copy,
+          chat_service_pb2.ChatMessage(
+            sender_id='Gemini',
+            content=gemini_response.text))
 
   async def Serve(self, port=50051) -> None:
     self.server = grpc.aio.server()
