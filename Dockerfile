@@ -46,10 +46,10 @@ RUN pip install -r requirements.txt
 RUN python -m grpc_tools.protoc \
     --include_imports \
     --include_source_info \
-    --proto_path=proto/ \
-    --descriptor_set_out=proto/api_descriptor.pb \
-    --python_out=proto/generated_pb2 \
-    --grpc_python_out=proto/generated_pb2 \
-    proto/chat_service.proto
+    --proto_path=protos/ \
+    --descriptor_set_out=protos/api_descriptor.pb \
+    --python_out=protos/generated_pb2 \
+    --grpc_python_out=protos/generated_pb2 \
+    protos/chat_service.proto
 
 ENTRYPOINT ["python", "/chat-app/chat_server_main.py"]

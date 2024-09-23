@@ -22,8 +22,6 @@
 *.pyc
 *.pyo
 *.swp
-/proto/generated_pb2/*pb2*.py
-/proto/api_descriptor.pb
 
 # Test results
 /test/results/
