@@ -1,18 +1,28 @@
+from anthropic import AsyncAnthropic
 from collections import namedtuple
+from openai import OpenAI
 from protos.generated_pb2 import chat_service_pb2
 from protos.generated_pb2 import chat_service_pb2_grpc
 from typing import AsyncIterator
 
+import anthropic
 import asyncio
-# https://github.com/google-gemini/generative-ai-python/issues/360
-import google.generativeai as gemini
 import grpc
+import google.generativeai as gemini
 import logging
+import openai
 import os
 import time
 
 gemini.configure(api_key=os.environ["GEMINI_API_KEY"])
-GEMINI_MODEL = gemini.GenerativeModel("gemini-1.5-flash")
+GEMINI_API_CLIENT = gemini.GenerativeModel("gemini-1.5-flash")
+
+OPENAI_API_CLIENT = OpenAI()
+
+ANTHROPIC_API_CLIENT = AsyncAnthropic(
+    # This is the default and can be omitted
+    api_key=os.environ.get('ANTHROPIC_API_KEY'),
+)
 
 ClientConnectionContext = namedtuple(
   'ClientConnectionContext', [
@@ -59,7 +69,7 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
         try:
           await channel.write(request)
         except Exception:
-          logger.info(f'Channel {channel} was recently closed. Skipping')
+          logging.info(f'Channel {channel} was recently closed. Skipping')
         finally:
           self.active_writing_channels.remove(channel)
       else:
@@ -109,15 +119,67 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
       # Brodcast request message to online users.
       await self._broadcast(connected_grpc_channels_copy, request)
 
-      # If request contains @gemini, forward request to gemini then broadcast
-      # gemini's response to all online users again.
+      #
+      # If request contains @<ai_agent>, forward request to agent then broadcast
+      # ai agent's response to all online users again.
+      #
       if '@gemini' in request.content:
-        gemini_response = GEMINI_MODEL.generate_content(request.content)
-        await self._broadcast(
-          connected_grpc_channels_copy,
-          chat_service_pb2.ChatMessage(
-            sender_id='Gemini',
-            content=gemini_response.text))
+        try:
+          # TODO: if Gemini doesn't offer async API, run this in a separate
+          # executor to avoid blocking main thread.
+          gemini_response = GEMINI_API_CLIENT.generate_content(request.content)
+          reply = gemini_response.text
+        except Exception as ex:
+          reply = str(ex)
+        finally:
+          await self._broadcast(
+            connected_grpc_channels_copy,
+            chat_service_pb2.ChatMessage(
+              sender_id='Gemini',
+              content='\n\n' + reply + '\n\n'))
+
+      if '@openai' in request.content:
+        try:
+          openai_response = OPENAI_API_CLIENT.chat.completions.create(
+              messages=[{
+                  "role": "OpenAI",
+                  "content": request.content,
+              }],
+              model="gpt-4o-mini",
+          )
+          reply = str(openai_response)
+        except Exception as ex:
+          reply = str(ex)
+        finally:
+          await self._broadcast(
+            connected_grpc_channels_copy,
+            chat_service_pb2.ChatMessage(
+              sender_id='OpenAI',
+              content='\n\n' + reply + '\n\n'))
+
+      if '@anthropic' in request.content:
+        try:
+          anthropic_response = await ANTHROPIC_API_CLIENT.messages.create(
+              max_tokens=1024,
+              messages=[
+                  {
+                      "role": "Anthropic Claude",
+                      "content": request.content,
+                  }
+              ],
+              model="claude-3-opus-20240229",
+          )
+          reply = anthropic_response.content
+        except anthropic.BadRequestError as ex:
+          logging.error(f'AI agent failed: {ex}')
+          reply = ex.message
+        finally:
+          await self._broadcast(
+            connected_grpc_channels_copy,
+            chat_service_pb2.ChatMessage(
+              sender_id='Anthropic Claude',
+              content='\n\n' + reply + '\n\n'))
+
 
   async def Serve(self, port=50051) -> None:
     self.server = grpc.aio.server()

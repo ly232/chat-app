@@ -96,7 +96,7 @@ async def generate_messages(client_id):
 async def receive_messages(stream, client_id):
   async for response in stream:
     if response.content and client_id != response.sender_id:
-      print(f'Received: {response.content} from {response.sender_id}')
+      print(f'\n{response.sender_id}: {response.content}\n=====\n')
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Chat app client.")
