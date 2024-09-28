@@ -1,8 +1,16 @@
-anthropic
+#
+# Core deps
+#
 google-auth==2.19.1
 six==1.16.0
 protobuf
 grpcio
 grpcio-tools
-google-generativeai
-openai
+
+#
+# LLM APIs
+#
+
+# anthropic
+# google-generativeai
+# openai

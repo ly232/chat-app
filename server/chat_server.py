@@ -1,28 +1,15 @@
-from anthropic import AsyncAnthropic
+from ai_agent import AiAgent
 from collections import namedtuple
-from openai import OpenAI
 from protos.generated_pb2 import chat_service_pb2
 from protos.generated_pb2 import chat_service_pb2_grpc
 from typing import AsyncIterator
 
-import anthropic
 import asyncio
 import grpc
-import google.generativeai as gemini
 import logging
-import openai
 import os
 import time
 
-gemini.configure(api_key=os.environ["GEMINI_API_KEY"])
-GEMINI_API_CLIENT = gemini.GenerativeModel("gemini-1.5-flash")
-
-OPENAI_API_CLIENT = OpenAI()
-
-ANTHROPIC_API_CLIENT = AsyncAnthropic(
-    # This is the default and can be omitted
-    api_key=os.environ.get('ANTHROPIC_API_KEY'),
-)
 
 ClientConnectionContext = namedtuple(
   'ClientConnectionContext', [
@@ -53,6 +40,8 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     # currently active writing channels, and writer coroutine in step 2 would
     # `await asyncio.sleep()` as long as the target channel is in this set.
     self.active_writing_channels = set()
+
+    self.ai_agent = AiAgent(self)
 
   async def _broadcast(self, connected_grpc_channels_copy, request):
     # Broadcast to all other currently connected clients, and garbage-collect
@@ -119,66 +108,8 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
       # Brodcast request message to online users.
       await self._broadcast(connected_grpc_channels_copy, request)
 
-      #
-      # If request contains @<ai_agent>, forward request to agent then broadcast
-      # ai agent's response to all online users again.
-      #
-      if '@gemini' in request.content:
-        try:
-          # TODO: if Gemini doesn't offer async API, run this in a separate
-          # executor to avoid blocking main thread.
-          gemini_response = GEMINI_API_CLIENT.generate_content(request.content)
-          reply = gemini_response.text
-        except Exception as ex:
-          reply = str(ex)
-        finally:
-          await self._broadcast(
-            connected_grpc_channels_copy,
-            chat_service_pb2.ChatMessage(
-              sender_id='Gemini',
-              content='\n\n' + reply + '\n\n'))
-
-      if '@openai' in request.content:
-        try:
-          openai_response = OPENAI_API_CLIENT.chat.completions.create(
-              messages=[{
-                  "role": "OpenAI",
-                  "content": request.content,
-              }],
-              model="gpt-4o-mini",
-          )
-          reply = str(openai_response)
-        except Exception as ex:
-          reply = str(ex)
-        finally:
-          await self._broadcast(
-            connected_grpc_channels_copy,
-            chat_service_pb2.ChatMessage(
-              sender_id='OpenAI',
-              content='\n\n' + reply + '\n\n'))
-
-      if '@anthropic' in request.content:
-        try:
-          anthropic_response = await ANTHROPIC_API_CLIENT.messages.create(
-              max_tokens=1024,
-              messages=[
-                  {
-                      "role": "Anthropic Claude",
-                      "content": request.content,
-                  }
-              ],
-              model="claude-3-opus-20240229",
-          )
-          reply = anthropic_response.content
-        except anthropic.BadRequestError as ex:
-          logging.error(f'AI agent failed: {ex}')
-          reply = ex.message
-        finally:
-          await self._broadcast(
-            connected_grpc_channels_copy,
-            chat_service_pb2.ChatMessage(
-              sender_id='Anthropic Claude',
-              content='\n\n' + reply + '\n\n'))
+      # Relay to LLMs.
+      await self.ai_agent.query(request.content, connected_grpc_channels_copy)
 
 
   async def Serve(self, port=50051) -> None:
