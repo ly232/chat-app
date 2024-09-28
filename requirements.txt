@@ -9,8 +9,9 @@ grpcio-tools
 
 #
 # LLM APIs
+# Note: as of 9/27/2024, GCP cannot install these SDKs just yet.
 #
 
-anthropic
+# anthropic
 # google-generativeai
-openai
+# openai
