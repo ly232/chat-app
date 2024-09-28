@@ -11,6 +11,6 @@ grpcio-tools
 # LLM APIs
 #
 
-# anthropic
+anthropic
 # google-generativeai
-# openai
+openai

@@ -2,6 +2,7 @@ from anthropic import AsyncAnthropic
 from openai import OpenAI
 from protos.generated_pb2 import chat_service_pb2
 
+import anthropic
 import google.generativeai as gemini
 import logging
 import os
