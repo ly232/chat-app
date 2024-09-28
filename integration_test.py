@@ -85,7 +85,7 @@ class ChatClientThread(Thread):
 
 class IntegrationTest(unittest.TestCase):
 
-  def simulate_client(self, client_id):
+  def simulate_client(self, client_id, messages=None):
     '''Test util to simulate a client sending n messages
     '''
     def requests_generator():
@@ -93,10 +93,12 @@ class IntegrationTest(unittest.TestCase):
         yield chat_service_pb2.ChatMessage(
           sender_id=client_id,
           content=f'message {i}')
+    if not messages:
+      messages = requests_generator
 
     channel = grpc.insecure_channel('localhost:50051')
     stub = chat_service_pb2_grpc.ChatServiceStub(channel)
-    stream = stub.Chat(requests_generator())
+    stream = stub.Chat(messages())
     # Note:
     # - `channel` is of type `grpc._channel.Channel`.
     # - `stream` is of type `_MultiThreadedRendezvous`.
@@ -166,6 +168,21 @@ class IntegrationTest(unittest.TestCase):
 
     channel1.close()
     channel2.close()
+
+  def test_gemini(self):
+    '''ATTN: $GEMINI_API_KEY must be a valid environment variable.
+    '''
+    def gemini_generator():
+      yield chat_service_pb2.ChatMessage(
+        sender_id='client',
+        content='@gemini when was google founded?')
+    channel, stream = self.simulate_client('client', gemini_generator)
+    responses = list(stream)
+    gemini_responses = [r for r in responses if r.sender_id == 'Gemini']
+    self.assertEqual(len(gemini_responses), 1)
+    self.assertTrue('1998' in gemini_responses[0].content)
+    channel.close()
+
 
 if __name__ == '__main__':
   # logging.basicConfig(level=logging.INFO)

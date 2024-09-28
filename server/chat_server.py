@@ -1,3 +1,4 @@
+from ai_agent import AiAgent
 from collections import namedtuple
 from protos.generated_pb2 import chat_service_pb2
 from protos.generated_pb2 import chat_service_pb2_grpc
@@ -39,6 +40,8 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     # currently active writing channels, and writer coroutine in step 2 would
     # `await asyncio.sleep()` as long as the target channel is in this set.
     self.active_writing_channels = set()
+
+    self.ai_agent = AiAgent(self)
 
   async def _broadcast(self, connected_grpc_channels_copy, request):
     # Broadcast to all other currently connected clients, and garbage-collect
@@ -104,6 +107,8 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
 
       # Brodcast request message to online users.
       await self._broadcast(connected_grpc_channels_copy, request)
+      # Relay to LLMs.
+      await self.ai_agent.query(request.content, connected_grpc_channels_copy)
 
   async def Serve(self, port=50051) -> None:
     self.server = grpc.aio.server()
