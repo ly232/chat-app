@@ -11,8 +11,8 @@ or to connect to remote server in GCP:
   python -m client.chat_client --remote=true
 '''
 
-from proto.generated_pb2 import chat_service_pb2
-from proto.generated_pb2 import chat_service_pb2_grpc
+from protos.generated_pb2 import chat_service_pb2
+from protos.generated_pb2 import chat_service_pb2_grpc
 
 import argparse
 import grpc
@@ -23,7 +23,7 @@ class ChatClient:
   '''A simple chat client.
   '''
 
-  def __init__(self, client_id, remote):
+  def __init__(self, client_id, remote=False):
     '''Initializes the chat client.
 
     Args:
@@ -67,11 +67,11 @@ class ChatClient:
       # Open the chat stream.
       stream = stub.Chat(generate_messages(self._client_id))
 
-      # Create a coroutine task for receiving messages
+      # Create a coroutine task for receiving messages.
       receive_task = asyncio.create_task(
         receive_messages(stream, self._client_id))
 
-      # Awaiting on the coroutine in event loop. If `stream` receives any message,
+      # Awaiting on the coroutine in event loop. If `stream` receives a message,
       # event loop will execute the `receive_messages` callback, otherwise the
       # coroutine will be placed to the end of the event loop to yield execution
       # to other coroutines (namely, the main coroutine).
@@ -97,7 +97,7 @@ async def generate_messages(client_id):
 async def receive_messages(stream, client_id):
   async for response in stream:
     if response.content and client_id != response.sender_id:
-      print(f'Received: {response.content} from {response.sender_id}')
+      print(f'\n{response.sender_id}: {response.content}\n=====\n')
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Chat app client.")

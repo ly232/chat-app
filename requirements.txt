@@ -1,5 +1,18 @@
+#
+# Core deps
+#
+aiohttp
 google-auth==2.19.1
 six==1.16.0
 protobuf
 grpcio
 grpcio-tools
+
+#
+# LLM APIs
+# Note: as of 9/27/2024, GCP cannot install these SDKs just yet.
+#
+
+# anthropic
+# google-generativeai
+# openai
