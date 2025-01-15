@@ -90,6 +90,8 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     self, 
     request_iterator: AsyncIterator[chat_service_pb2.ChatMessage],
     context: grpc.aio.ServicerContext):
+    print('auth context: ' + str(context.auth_context()))
+    print('peer_identity_key: ' + str(context.peer_identity_key()))
     async for request in request_iterator:
       logging.info(f'received chat message: {request}')
 

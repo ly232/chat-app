@@ -25,6 +25,14 @@ intentionally uses gRPC bi-di streaming for the following reasons:
 
 ## Local development
 
+Local setup:
+
+```
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
 Start server:
 
 ```
@@ -40,6 +48,15 @@ python -m client.chat_client
 # Terminal 2:
 python -m client.chat_client
 ```
+
+## Production usage
+
+Chat server is deployed in GCP at https://console.cloud.google.com/run?project=chat-app-436116. You may connect to it via:
+
+```
+python -m client.chat_client --remote=1
+```
+
 
 ## CI/CD
 

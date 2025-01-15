@@ -48,15 +48,12 @@ class ChatClient:
 
     creds = grpc.ssl_channel_credentials()
     if self._remote:
-      assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
-        'Please set env var CHAT_APP_SERVER_SPEC.'
-      chat_app_server_spec = os.environ.get('CHAT_APP_SERVER_SPEC')
+      chat_app_server_spec = 'chat-app-631248462212.us-central1.run.app:443'
       print(f'connecting to {chat_app_server_spec}')
       # Note: must use secure_channel, even if server uses add_insecure_port.
       # Using insecure_channel leads to "failed to connect to all addresses; last 
       # error: UNAVAILABLE: ...: Socket closed".
-      channel = grpc.aio.secure_channel(
-        os.environ.get('CHAT_APP_SERVER_SPEC'), creds)
+      channel = grpc.aio.secure_channel(chat_app_server_spec, creds)
     else:
       print(f'connecting to localhost:50051')
       channel = grpc.aio.insecure_channel('localhost:50051')
