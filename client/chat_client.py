@@ -50,7 +50,8 @@ class ChatClient:
     if self._remote:
       assert 'CHAT_APP_SERVER_SPEC' in os.environ, \
         'Please set env var CHAT_APP_SERVER_SPEC.'
-      print(f'connecting to {os.environ.get('CHAT_APP_SERVER_SPEC')}')
+      chat_app_server_spec = os.environ.get('CHAT_APP_SERVER_SPEC')
+      print(f'connecting to {chat_app_server_spec}')
       # Note: must use secure_channel, even if server uses add_insecure_port.
       # Using insecure_channel leads to "failed to connect to all addresses; last 
       # error: UNAVAILABLE: ...: Socket closed".
