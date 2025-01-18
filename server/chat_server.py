@@ -113,9 +113,23 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
       await self.ai_agent.query(request.content, connected_grpc_channels_copy)
 
   async def Serve(self, port=50051) -> None:
+    # Load server's private key and certificate
+    with open('server.key', 'rb') as f:
+        private_key = f.read()
+    with open('server.crt', 'rb') as f:
+        certificate_chain = f.read()
+
+    # Create server credentials
+    server_credentials = grpc.ssl_server_credentials(
+        [(private_key, certificate_chain)],
+        root_certificates=None,
+        require_client_auth=False
+    )
+    
     self.server = grpc.aio.server()
     chat_service_pb2_grpc.add_ChatServiceServicer_to_server(self, self.server)
-    self.server.add_insecure_port(f'[::]:{port}')
+    # self.server.add_insecure_port(f'[::]:{port}')
+    self.server.add_secure_port(f'[::]:{port}', server_credentials)
     await self.server.start()
     logging.info(f'Server is running on port {port}.')
     await self.server.wait_for_termination()

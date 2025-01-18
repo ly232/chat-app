@@ -34,5 +34,10 @@
 # Environment files
 /venv/
 
+# Security files
+server.key
+server.crt
+server.csr
+
 # Temporary files
 *~

@@ -57,6 +57,25 @@ Chat server is deployed in GCP at https://console.cloud.google.com/run?project=c
 python -m client.chat_client --remote=1
 ```
 
+## Security
+
+SSL/TLS establishes a trusted channel between client and server. Normally for browser-based apps, it's recommended to have a trusted CA issue the cert. But (a) it costs money, and (b) in this chat app, both client and server are self-owned and client is a commandline tool. So we'll opt for a self-served SSL/TLS generated cert. Setting up SSL/TLS enables e2e encryption to protect against man-in-the-middle attacks.
+
+```
+# Generate a private key
+openssl genpkey -algorithm RSA -out server.key -aes256
+
+# To remove password:
+openssl rsa -in server.key -out server.key
+
+# Generate a certificate signing request (CSR)
+# Remember to set:
+# Common Name (e.g. server FQDN or YOUR name) []:localhost
+openssl req -new -key server.key -out server.csr
+
+# Create the self-signed certificate
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+```
 
 ## CI/CD
 

@@ -46,7 +46,9 @@ class ChatClient:
       the async generator.
     '''
 
-    creds = grpc.ssl_channel_credentials()
+    with open('server.crt', 'rb') as f:
+      trusted_certs = f.read()
+    creds = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
     if self._remote:
       chat_app_server_spec = 'chat-app-631248462212.us-central1.run.app:443'
       print(f'connecting to {chat_app_server_spec}')
@@ -56,7 +58,7 @@ class ChatClient:
       channel = grpc.aio.secure_channel(chat_app_server_spec, creds)
     else:
       print(f'connecting to localhost:50051')
-      channel = grpc.aio.insecure_channel('localhost:50051')
+      channel = grpc.aio.secure_channel('localhost:50051', creds)
 
     async with channel:
       stub = chat_service_pb2_grpc.ChatServiceStub(channel)
