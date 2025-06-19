@@ -3,10 +3,14 @@
 ## Overview
 
 A chat app that leverages gRPC's bi-di streaming capability to broadcast to all
-online clients.
+online clients & AI chatbots.
 
-For MVP, the intended use case is limited to a small group of users (e.g. <10).
-For example, family members + AI agents or
+Typical user journeys:
+1.  N users are logged in.
+2.  One user types some message. This message is transmitted to server.
+3.  Server broadcasts the message to all N-1 online users.
+4.  Anyone can optionally type `@<AI chatbot>` to interact with AI chatbots.
+    For example, `@gemini`, `@anthropic`, ...
 
 ## Architectural decisions
 
@@ -21,32 +25,39 @@ intentionally uses gRPC bi-di streaming for the following reasons:
 
 ### Database choice
 
-### Message causality
+We use sqlite on the client side only. This ensures remote server's sole
+responsibilities are (a) message broadcasting, and (b) AI chatbot interactions,
+so that we don't have to distribute AI chatbot's API keys to clients. And at the
+same time, chat histories are entirely local, easy to search, and preserves
+privacy.
+
+We chose sqlite instead of other database soluions mostly for its simple Python
+APIs and mature ecosystem.
 
 ## Local development
 
 Local setup:
 
 ```
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 Start server:
 
 ```
-python chat_server_main.py
+python3 chat_server_main.py
 ```
 
 Start client:
 
 ```
 # Terminal 1:
-python -m client.chat_client
+python3 -m client.chat_client
 
 # Terminal 2:
-python -m client.chat_client
+python3 -m client.chat_client
 ```
 
 ## Production usage
@@ -78,6 +89,8 @@ openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
 ```
 
 ## CI/CD
+
+Chat server is deployed on GCP Cloud Run.
 
 `git push -u origin main` will trigger a Cloud Build.
 
