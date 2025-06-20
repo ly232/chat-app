@@ -11,6 +11,7 @@ or to connect to remote server in GCP:
   python -m client.chat_client --remote=true
 '''
 
+from .dao import DataAccessObject
 from protos.generated_pb2 import chat_service_pb2
 from protos.generated_pb2 import chat_service_pb2_grpc
 
@@ -33,8 +34,9 @@ class ChatClient:
     '''
     self._client_id = client_id
     self._remote = remote
+    self._dao = DataAccessObject()
 
-  async def run(self, generate_messages, receive_messages):
+  async def run(self):
     '''Start running the client.
 
     Args:
@@ -45,6 +47,13 @@ class ChatClient:
       and a client id, and defines processing logic upon each value yielded by
       the async generator.
     '''
+
+    # Print chat history for last 1 day.
+    history = await self._dao.list_messages(last_n_days=1)
+    print(f'== Chat history from past 1 day ==')
+    print('\n\n'.join([
+      f'{message.user_name}: {message.message}' for message in history]))
+    print('== End of chat history ==')
 
     with open('server.crt', 'rb') as f:
       trusted_certs = f.read()
@@ -64,11 +73,11 @@ class ChatClient:
       stub = chat_service_pb2_grpc.ChatServiceStub(channel)
 
       # Open the chat stream.
-      stream = stub.Chat(generate_messages(self._client_id))
+      stream = stub.Chat(self.generate_messages(self._client_id))
 
       # Create a coroutine task for receiving messages.
       receive_task = asyncio.create_task(
-        receive_messages(stream, self._client_id))
+        self.receive_messages(stream, self._client_id))
 
       # Awaiting on the coroutine in event loop. If `stream` receives a message,
       # event loop will execute the `receive_messages` callback, otherwise the
@@ -76,27 +85,31 @@ class ChatClient:
       # to other coroutines (namely, the main coroutine).
       await receive_task
 
-#
-# Define generator and coroutine for this particular chat client app.
-#
-async def generate_messages(client_id):
-  # Initiate a dummy empty message to establish the connection. Without this,
-  # the client won't establish a connection to server just yet, which means the
-  # very first message will not be seen by other clients.
-  yield chat_service_pb2.ChatMessage(sender_id=client_id)
+  #
+  # Define generator and coroutine for this particular chat client app.
+  #
+  async def generate_messages(self, client_id):
+    # Initiate a dummy empty message to establish the connection. Without this,
+    # the client won't establish a connection to server just yet, which means
+    # the very first message will not be seen by other clients.
+    yield chat_service_pb2.ChatMessage(sender_id=client_id)
 
-  # Now interactively awaits user to enter next messasge.
-  while True:
-    message_content = input(f'{client_id}: ')
-    yield chat_service_pb2.ChatMessage(
-      content=message_content, sender_id=client_id)
-    # Sleep a bit to give event loop a chance to display any pending messages.
-    await asyncio.sleep(0.1)
+    # Now interactively awaits user to enter next messasge.
+    while True:
+      message_content = input(f'{client_id}: ')
+      await self._dao.write_message(
+        user_name=client_id, message=message_content)
+      yield chat_service_pb2.ChatMessage(
+        content=message_content, sender_id=client_id)
+      # Sleep a bit to give event loop a chance to display any pending messages.
+      await asyncio.sleep(0.1)
 
-async def receive_messages(stream, client_id):
-  async for response in stream:
-    if response.content and client_id != response.sender_id:
-      print(f'\n{response.sender_id}: {response.content}\n=====\n')
+  async def receive_messages(self, stream, client_id):
+    async for response in stream:
+      if response.content and client_id != response.sender_id:
+        print(f'\n{response.sender_id}: {response.content}\n=====\n')
+        await self._dao.write_message(
+          user_name=response.sender_id, message=response.content)
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Chat app client.")
@@ -107,7 +120,6 @@ if __name__ == '__main__':
   client_id = input("Enter your client ID: ")
   chat_client = ChatClient(client_id, args.remote)
   try:
-    asyncio.run(
-      chat_client.run(generate_messages, receive_messages))
+    asyncio.run(chat_client.run())
   except KeyboardInterrupt:
     print("\nChat ended.")

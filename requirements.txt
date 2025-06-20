@@ -2,11 +2,13 @@
 # Core deps
 #
 aiohttp
+aiosqlite
 google-auth==2.19.1
 six==1.16.0
 protobuf
 grpcio
 grpcio-tools
+sqlalchemy
 
 #
 # LLM APIs

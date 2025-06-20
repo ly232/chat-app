@@ -12,6 +12,12 @@ Typical user journeys:
 4.  Anyone can optionally type `@<AI chatbot>` to interact with AI chatbots.
     For example, `@gemini`, `@anthropic`, ...
 
+## Demo
+
+![Screenshot](demo.png)
+
+![Screencast](demo.gif)
+
 ## Architectural decisions
 
 ### gRPC vs. Web Socket
@@ -32,7 +38,16 @@ same time, chat histories are entirely local, easy to search, and preserves
 privacy.
 
 We chose sqlite instead of other database soluions mostly for its simple Python
-APIs and mature ecosystem.
+APIs and mature ecosystem. We also use sqlalchemy for db adapter. All APIs use
+the asyncio version to stay compatible with the rest of the async chat app.
+
+Local database can be accessed as follows:
+
+```
+sqlite3 chat-app-client-local.db
+
+> SELECT * FROM Message;
+```
 
 ## Local development
 
@@ -106,7 +121,7 @@ gcloud run deploy chat-app --source .
 
 ### Features
 
-*  AI agent integration.
+*  MCP integration.
 *  Message history.
 *  Access control.
 *  Mobile app & web app.
