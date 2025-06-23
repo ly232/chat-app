@@ -75,14 +75,6 @@ python3 -m client.chat_client
 python3 -m client.chat_client
 ```
 
-## Production usage
-
-Chat server is deployed in GCP at https://console.cloud.google.com/run?project=chat-app-436116. You may connect to it via:
-
-```
-python -m client.chat_client --remote=1
-```
-
 ## Security
 
 SSL/TLS establishes a trusted channel between client and server. Normally for browser-based apps, it's recommended to have a trusted CA issue the cert. But (a) it costs money, and (b) in this chat app, both client and server are self-owned and client is a commandline tool. So we'll opt for a self-served SSL/TLS generated cert. Setting up SSL/TLS enables e2e encryption to protect against man-in-the-middle attacks.
