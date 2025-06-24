@@ -1,4 +1,5 @@
 from server.llm_api_base import LlmApiBase
+from typing import List, Dict
 
 import os
 
@@ -16,7 +17,7 @@ Documentation: https://docs.anthropic.com/en/api/overview.
 '''
 class AnthropicRestClient(LlmApiBase):
 
-  def __init__(self):
+  def __init__(self, mcp_tools: List[Dict[str, str]]):
     super().__init__(
       name='Claude',
       url=URL,
@@ -29,10 +30,23 @@ class AnthropicRestClient(LlmApiBase):
       prompt_to_data=lambda prompt: {
         'model': MODEL,
         'max_tokens': MAX_TOKENS,
+        'tools': mcp_tools,
         'messages': [
           {'role': 'user', 'content': prompt}
         ]
       },
-      response_extraction_callbck=lambda response_data: \
-        response_data['content'][0]['text']
+      response_extraction_callbck=self.response_extraction_callbck
     )
+
+  def response_extraction_callbck(self, response_data):
+    print(f'!!!!! RESPONSE: {response_data}')
+    # return response_data['content'][0]['text']
+
+    reply_message = None
+    for content in response_data['content']:
+      if content['type'] == 'message':
+        reply_message = content['text']
+      if content['type'] == 'tool_use':
+        # TODO: make MCP tool call.
+        pass
+    return reply_message

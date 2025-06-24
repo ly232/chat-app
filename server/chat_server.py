@@ -1,5 +1,6 @@
 from ai_agent import AiAgent
 from collections import namedtuple
+from mcp_servers.mcp_server_connector import McpServerConnector
 from protos.generated_pb2 import chat_service_pb2
 from protos.generated_pb2 import chat_service_pb2_grpc
 from typing import AsyncIterator
@@ -41,7 +42,10 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
     # `await asyncio.sleep()` as long as the target channel is in this set.
     self.active_writing_channels = set()
 
-    self.ai_agent = AiAgent(self)
+    self.mcp_server_connector = McpServerConnector()
+
+    # To be initialized within Serve() call.
+    self.ai_agent: AiAgent = None
 
   async def _broadcast(self, connected_grpc_channels_copy, request):
     # Broadcast to all other currently connected clients, and garbage-collect
@@ -113,6 +117,11 @@ class ChatService(chat_service_pb2_grpc.ChatServiceServicer):
       await self.ai_agent.query(request.content, connected_grpc_channels_copy)
 
   async def Serve(self, port=50051) -> None:
+    # Bootstrap MCP servers. This also makes the MCP tools ready to be passed
+    # to AiAgent next.
+    await self.mcp_server_connector.connect_to_servers()
+    self.ai_agent = AiAgent(self)
+
     # Load server's private key and certificate
     with open('server.key', 'rb') as f:
         private_key = f.read()

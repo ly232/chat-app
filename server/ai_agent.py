@@ -2,6 +2,7 @@ from anthropic import AnthropicRestClient
 from gemini import GeminiRestClient
 from openai import OpenAiRestClient
 from protos.generated_pb2 import chat_service_pb2
+from mcp_servers.mcp_server_connector import McpServerConnector
 
 import asyncio
 import logging
@@ -12,11 +13,20 @@ class AiAgent:
 
   def __init__(self, chat_server):
     self.chat_server = chat_server
+    mcp_tools = [
+      {
+          "name": tool.name,
+          "description": tool.description,
+          "input_schema": tool.inputSchema
+      }
+      for tool in chat_server.mcp_server_connector.get_available_tools()
+    ]
+    print(f'!!!!! mcp tools: {mcp_tools}')
     self.llm_apis = {
       '@google': GeminiRestClient(),
       '@gemini': GeminiRestClient(),
-      '@anthropic': AnthropicRestClient(),
-      '@claude': AnthropicRestClient(),
+      '@anthropic': AnthropicRestClient(mcp_tools),
+      '@claude': AnthropicRestClient(mcp_tools),
       '@openai': OpenAiRestClient(),
     }
 

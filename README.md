@@ -54,25 +54,26 @@ sqlite3 chat-app-client-local.db
 Local setup:
 
 ```
-python3 -m venv venv
-source venv/bin/activate
-pip3 install -r requirements.txt
+uv venv
+uv pip install -r requirements.txt
+source .venv/bin/activate
+source ~/.bashrc
 ```
 
 Start server:
 
 ```
-python3 chat_server_main.py
+uv run chat_server_main.py
 ```
 
 Start client:
 
 ```
 # Terminal 1:
-python3 -m client.chat_client
+uv run -m client.chat_client
 
 # Terminal 2:
-python3 -m client.chat_client
+uv run -m client.chat_client
 ```
 
 ## Security
@@ -114,7 +115,6 @@ gcloud run deploy chat-app --source .
 ### Features
 
 *  MCP integration.
-*  Message history.
 *  Access control.
 *  Mobile app & web app.
 *  Multi-media support.
