@@ -49,6 +49,26 @@ sqlite3 chat-app-client-local.db
 > SELECT * FROM Message;
 ```
 
+### MCP Integration
+
+1. `server/mcp_servers/mcp_server_connector.py` takes care of MCP server
+   bootstrapping and connection. Currently it oly connects to a demo server that
+   gets local git commit status. By the end of `connect_to_servers()` call, it's
+   ready to return the list of available MCP tools.
+2. `McpServerConnector` is a member of `ChatServer`, which gets initialized
+   *right after* `ChatServer.Serve()` is called. This is because
+   `McpServerConnector` initialization (i.e. call `connect_to_servers()`) is
+   async and cannot be invoked inside `__init__`.
+3. The MCP tools availble is static across the session, so they can be passed
+   as constructor arguments to the various AI agents. In `AiAgent`, we pass
+   `mcp_tools` to underlying LLM API clients that support MCP tooling. For
+   example, `AnthropicRestClient` takes in `mcp_tools` and use it as a request
+   field `tools = mcp_tools` when making the HTTPS call.
+4. LLM API follows MCP protocol to return content with `type == "tool_use"`.
+   Then it's back to the agent's implementation responsibility to invoke the
+   relevant tools requested by the LLM API.
+   * TODO: think through the design - this may be anthoter bidi stream.
+
 ## Local development
 
 Local setup:
