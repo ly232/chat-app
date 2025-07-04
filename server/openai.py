@@ -15,7 +15,7 @@ Documentation: https://platform.openai.com/docs/api-reference/introduction.
 '''
 class OpenAiRestClient(LlmApiBase):
 
-  def __init__(self):
+  def __init__(self, ai_agent: 'AiAgent'):
     super().__init__(
       name='OpenAI',
       url=URL,
@@ -31,3 +31,4 @@ class OpenAiRestClient(LlmApiBase):
       response_extraction_callbck=lambda response_data: \
         response_data['output'][0]['content'][0]['text']
     )
+    self.ai_agent = ai_agent

@@ -14,7 +14,7 @@ Documentation: https://ai.google.dev/gemini-api/docs.
 '''
 class GeminiRestClient(LlmApiBase):
 
-  def __init__(self):
+  def __init__(self, ai_agent: 'AiAgent'):
     super().__init__(
       name='Gemini',
       url=f"{URL}?key={GEMINI_API_KEY}",
@@ -30,3 +30,4 @@ class GeminiRestClient(LlmApiBase):
       response_extraction_callbck=lambda response_data: \
         response_data['candidates'][0]['content']['parts'][0]['text']
     )
+    self.ai_agent = ai_agent
