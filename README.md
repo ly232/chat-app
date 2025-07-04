@@ -18,7 +18,156 @@ Typical user journeys:
 
 ![Screencast](demo.gif)
 
-## Architectural decisions
+## Architecture
+
+### Class design
+
+```mermaid
+classDiagram
+    class ChatServer {
+        -McpServerConnector mcp_server_connector
+        -List~AiAgent~ ai_agents
+        -Set~Client~ active_clients
+        +Serve() void
+        +BroadcastMessage(Message message) void
+        +HandleClientConnection(Client client) void
+        +ProcessAiChatRequest(AiChatRequest request) AiChatResponse
+    }
+
+    class McpServerConnector {
+        -List~McpServer~ servers
+        -List~McpTool~ tools
+        +connect_to_servers() List~McpTool~
+        +initialize() void
+        +get_available_tools() List~McpTool~
+        +execute_tool(String tool_name, dict params) ToolResult
+    }
+
+    class ChatClient {
+        -DatabaseManager db_manager
+        -Channel grpc_channel
+        -Stream message_stream
+        +connect_to_server() void
+        +send_message(Message message) void
+        +receive_messages() Stream~Message~
+        +handle_ai_response(AiResponse response) void
+    }
+
+    class AiAgent {
+        -String agent_name
+        -ApiClient api_client
+        -List~McpTool~ mcp_tools
+        +process_message(Message message) AiResponse
+        +get_agent_name() String
+        +initialize_with_tools(List~McpTool~ tools) void
+    }
+
+    class AnthropicRestClient {
+        -String api_key
+        -List~McpTool~ mcp_tools
+        -String endpoint
+        +make_request(String prompt, List~McpTool~ tools) ApiResponse
+        +handle_tool_use(ToolUse tool_use) ToolResult
+    }
+
+    class GeminiRestClient {
+        -String api_key
+        -List~McpTool~ mcp_tools
+        -String endpoint
+        +make_request(String prompt, List~McpTool~ tools) ApiResponse
+        +handle_tool_use(ToolUse tool_use) ToolResult
+    }
+
+    class DatabaseManager {
+        -String db_path
+        -Connection connection
+        +save_message(Message message) void
+        +get_chat_history() List~Message~
+        +search_messages(String query) List~Message~
+        +initialize_db() void
+    }
+
+    class Message {
+        -int id
+        -String sender
+        -String content
+        -datetime timestamp
+        -MessageType message_type
+        +to_protobuf() MessageProto
+        +from_protobuf(MessageProto proto) Message
+    }
+
+    class MessageProto {
+        +int32 id
+        +string sender
+        +string content
+        +int64 timestamp
+        +MessageType type
+    }
+
+    class AiChatRequest {
+        -Message message
+        -String target_agent
+        -String context
+        +to_protobuf() AiChatRequestProto
+    }
+
+    class AiChatResponse {
+        -String response_content
+        -String agent_name
+        -List~ToolResult~ tool_results
+        +to_protobuf() AiChatResponseProto
+    }
+
+    class McpTool {
+        -String name
+        -String description
+        -dict parameters
+        +execute(dict params) ToolResult
+        +to_api_format() dict
+    }
+
+    class ToolResult {
+        -String tool_name
+        -any result
+        -bool success
+        -String error_message
+    }
+
+    class GitInfoTool {
+        +get_git_status() GitStatus
+        +get_commit_history() List~Commit~
+        +execute(dict params) ToolResult
+    }
+
+    ChatServer --> ChatClient
+    ChatServer --> McpServerConnector
+    ChatServer --> AiAgent
+    ChatServer --> Message
+    
+    ChatClient --> DatabaseManager
+    ChatClient --> Message
+    
+    AiAgent --> AnthropicRestClient
+    AiAgent --> GeminiRestClient
+    AiAgent --> McpTool
+    
+    AnthropicRestClient --> AiChatRequest
+    AnthropicRestClient --> AiChatResponse
+    GeminiRestClient --> AiChatRequest
+    GeminiRestClient --> AiChatResponse
+    
+    McpServerConnector --> McpTool
+    McpServerConnector --> GitInfoTool
+    
+    DatabaseManager --> Message
+    
+    Message --> MessageProto
+    AiChatRequest --> AiChatResponse
+    
+    McpTool --> ToolResult
+    GitInfoTool --> McpTool
+```
 
 ### gRPC vs. Web Socket
 
